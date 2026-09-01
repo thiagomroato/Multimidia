@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0A0D12" />
+<title>AutoPainel</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ================= BARRA DE STATUS ================= -->
+  <header class="statusbar">
+    <div class="statusbar__cluster">
+      <span class="statusbar__clock" id="clock">--:--</span>
+      <span class="statusbar__date" id="date">-- --- ----</span>
+    </div>
+    <div class="statusbar__cluster statusbar__cluster--right">
+      <button class="statusbar__pill" id="weatherPill" data-goto="weather" aria-label="Abrir clima">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><use href="#i-cloud"/></svg>
+        <span id="weatherPillTemp">--°</span>
+      </button>
+      <span class="statusbar__pill" id="gpsPill">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><use href="#i-satellite"/></svg>
+        <span id="gpsPillLabel">Sem sinal</span>
+      </span>
+      <span class="statusbar__pill statusbar__pill--battery" id="batteryPill">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><use href="#i-battery"/></svg>
+        <span id="batteryPillLabel">--%</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- ================= TELAS ================= -->
+  <main id="screens">
+
+    <!-- HOME / PAINEL -->
+    <section class="screen active" id="screen-home" data-title="Painel">
+      <div class="dash">
+        <div class="dash__gauge panel">
+          <div class="gauge" id="speedGauge">
+            <svg viewBox="0 0 240 240" class="gauge__ring">
+              <circle cx="120" cy="120" r="104" class="gauge__track"/>
+              <circle cx="120" cy="120" r="104" class="gauge__fill" id="gaugeFill"/>
+            </svg>
+            <div class="gauge__readout">
+              <span class="gauge__value" id="speedValue">0</span>
+              <span class="gauge__unit">km/h</span>
+            </div>
+          </div>
+          <div class="dash__gaugefoot">
+            <button class="chip" id="demoModeBtn" type="button">Modo demonstração</button>
+            <span class="dash__accuracy" id="speedAccuracy">GPS inativo</span>
+          </div>
+        </div>
+
+        <div class="dash__side">
+          <div class="panel panel--tight" id="miniWeather">
+            <div class="panel__label">Clima agora</div>
+            <div class="miniweather">
+              <svg class="icon icon--lg" viewBox="0 0 24 24"><use href="#i-cloud" id="miniWeatherIcon"/></svg>
+              <div>
+                <div class="miniweather__temp" id="miniWeatherTemp">--°C</div>
+                <div class="miniweather__desc" id="miniWeatherDesc">Aguardando localização</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel panel--tight" id="miniMapPanel">
+            <div class="panel__label">Localização</div>
+            <div id="miniMap" class="miniMap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tiles">
+        <button class="tile" data-goto="nav">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-compass"/></svg>
+          <span>Navegação</span>
+        </button>
+        <button class="tile" data-goto="camera">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-camera"/></svg>
+          <span>Câmera de ré</span>
+        </button>
+        <button class="tile" data-goto="music">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-music"/></svg>
+          <span>Música</span>
+        </button>
+        <button class="tile" data-goto="streaming">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-play"/></svg>
+          <span>Streaming</span>
+        </button>
+        <button class="tile" data-goto="weather">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-cloud"/></svg>
+          <span>Clima</span>
+        </button>
+        <button class="tile" data-goto="settings">
+          <svg class="icon icon--tile" viewBox="0 0 24 24"><use href="#i-settings"/></svg>
+          <span>Ajustes</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- NAVEGAÇÃO / GPS -->
+    <section class="screen" id="screen-nav" data-title="Navegação">
+      <div class="nav-layout">
+        <div class="nav-map panel">
+          <div id="fullMap" class="fullMap"></div>
+        </div>
+        <div class="nav-side panel">
+          <div class="panel__label">Traçar rota</div>
+          <form id="routeForm" class="routeform">
+            <input type="text" id="destInput" placeholder="Digite o destino" autocomplete="off" />
+            <button type="submit" class="btn btn--primary">Buscar rota</button>
+          </form>
+          <div id="routeInfo" class="routeinfo hidden">
+            <div class="routeinfo__row"><span>Distância</span><strong id="routeDistance">--</strong></div>
+            <div class="routeinfo__row"><span>Tempo estimado</span><strong id="routeDuration">--</strong></div>
+            <button class="btn btn--ghost" id="clearRouteBtn" type="button">Limpar rota</button>
+          </div>
+          <div class="routehint" id="routeHint">Toque no mapa ou pesquise um endereço para traçar a rota a partir da sua posição atual.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CÂMERA DE RÉ -->
+    <section class="screen" id="screen-camera" data-title="Câmera de ré">
+      <div class="camera-wrap panel">
+        <video id="cameraFeed" autoplay playsinline muted></video>
+        <svg id="cameraGuides" class="camera-guides" viewBox="0 0 800 450" preserveAspectRatio="none">
+          <path d="M 60 450 L 280 190 L 520 190 L 740 450" class="guide guide--green" />
+          <path d="M 150 450 L 320 250 L 480 250 L 650 450" class="guide guide--amber" />
+          <path d="M 260 450 L 350 320 L 450 320 L 540 450" class="guide guide--red" />
+        </svg>
+        <div class="camera-off" id="cameraOff">
+          <svg class="icon icon--xl" viewBox="0 0 24 24"><use href="#i-camera"/></svg>
+          <p>Câmera desligada</p>
+          <button class="btn btn--primary" id="cameraStartBtn">Ativar câmera</button>
+        </div>
+        <div class="camera-controls">
+          <button class="btn btn--ghost" id="cameraSwitchBtn">Trocar câmera</button>
+          <button class="btn btn--ghost" id="cameraStopBtn">Desligar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MÚSICA -->
+    <section class="screen" id="screen-music" data-title="Música">
+      <div class="music-layout">
+        <div class="music-player panel">
+          <div class="music-art" id="musicArt">
+            <svg class="icon icon--xl" viewBox="0 0 24 24"><use href="#i-music"/></svg>
+          </div>
+          <div class="music-meta">
+            <div class="music-title" id="musicTitle">Nenhuma faixa carregada</div>
+            <div class="music-sub" id="musicSub">Adicione arquivos de áudio para começar</div>
+          </div>
+          <canvas id="musicViz" class="music-viz" height="64"></canvas>
+          <div class="music-seek">
+            <span id="musicTime">0:00</span>
+            <input type="range" id="musicSeek" min="0" max="100" value="0" />
+            <span id="musicDuration">0:00</span>
+          </div>
+          <div class="music-controls">
+            <button class="iconbtn" id="musicPrev" aria-label="Anterior"><svg class="icon" viewBox="0 0 24 24"><use href="#i-prev"/></svg></button>
+            <button class="iconbtn iconbtn--main" id="musicPlay" aria-label="Reproduzir"><svg class="icon" viewBox="0 0 24 24"><use href="#i-play2"/></svg></button>
+            <button class="iconbtn" id="musicNext" aria-label="Próxima"><svg class="icon" viewBox="0 0 24 24"><use href="#i-next"/></svg></button>
+            <label class="iconbtn" id="musicAddLabel" aria-label="Adicionar músicas">
+              <svg class="icon" viewBox="0 0 24 24"><use href="#i-add"/></svg>
+              <input type="file" id="musicInput" accept="audio/*" multiple hidden />
+            </label>
+          </div>
+        </div>
+        <div class="music-playlist panel">
+          <div class="panel__label">Fila de reprodução</div>
+          <ul id="musicPlaylist" class="playlist">
+            <li class="playlist__empty">Nenhuma música na fila</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- STREAMING -->
+    <section class="screen" id="screen-streaming" data-title="Streaming">
+      <div class="streaming-grid">
+        <button class="streamcard streamcard--netflix" data-app="netflix">
+          <span class="streamcard__name">Netflix</span>
+          <span class="streamcard__hint">Abrir aplicativo</span>
+        </button>
+        <button class="streamcard streamcard--prime" data-app="prime">
+          <span class="streamcard__name">Prime Video</span>
+          <span class="streamcard__hint">Abrir aplicativo</span>
+        </button>
+        <button class="streamcard streamcard--disney" data-app="disney">
+          <span class="streamcard__name">Disney+</span>
+          <span class="streamcard__hint">Abrir aplicativo</span>
+        </button>
+        <button class="streamcard streamcard--spotify" data-app="spotify">
+          <span class="streamcard__name">Spotify</span>
+          <span class="streamcard__hint">Abrir aplicativo</span>
+        </button>
+      </div>
+
+      <div class="panel youtube-panel">
+        <div class="panel__label">YouTube</div>
+        <form id="youtubeForm" class="routeform">
+          <input type="text" id="youtubeInput" placeholder="Cole o link ou ID de um vídeo do YouTube" autocomplete="off" />
+          <button type="submit" class="btn btn--primary">Reproduzir</button>
+        </form>
+        <div class="youtube-frame" id="youtubeFrame">
+          <p class="youtube-placeholder">Cole o link de um vídeo do YouTube acima para reproduzir aqui.</p>
+        </div>
+      </div>
+
+      <p class="streaming-note">Netflix, Prime Video, Disney+ e Spotify bloqueiam a exibição incorporada (DRM). Os cartões acima abrem o app ou site oficial em uma nova guia.</p>
+    </section>
+
+    <!-- CLIMA -->
+    <section class="screen" id="screen-weather" data-title="Clima">
+      <div class="weather-layout">
+        <div class="panel weather-now">
+          <svg class="icon icon--xl" viewBox="0 0 24 24"><use href="#i-cloud" id="weatherNowIcon"/></svg>
+          <div class="weather-now__temp" id="weatherNowTemp">--°C</div>
+          <div class="weather-now__desc" id="weatherNowDesc">Aguardando localização</div>
+          <div class="weather-now__place" id="weatherNowPlace">--</div>
+          <div class="weather-now__extra">
+            <div><span>Sensação</span><strong id="weatherFeels">--°</strong></div>
+            <div><span>Vento</span><strong id="weatherWind">-- km/h</strong></div>
+            <div><span>Umidade</span><strong id="weatherHumidity">--%</strong></div>
+          </div>
+        </div>
+        <div class="panel weather-forecast">
+          <div class="panel__label">Próximos dias</div>
+          <div id="weatherForecast" class="forecast-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="screen" id="screen-settings" data-title="Ajustes">
+      <div class="panel settings-panel">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__title">Unidade de velocidade</div>
+            <div class="settings-row__desc">Escolha entre quilômetros ou milhas por hora</div>
+          </div>
+          <div class="segmented" id="unitSetting">
+            <button class="segmented__opt is-active" data-unit="kmh">km/h</button>
+            <button class="segmented__opt" data-unit="mph">mph</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__title">Tema do painel</div>
+            <div class="settings-row__desc">Ajuste o brilho para condução diurna ou noturna</div>
+          </div>
+          <div class="segmented" id="themeSetting">
+            <button class="segmented__opt is-active" data-theme="night">Noturno</button>
+            <button class="segmented__opt" data-theme="day">Diurno</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__title">Permissões</div>
+            <div class="settings-row__desc">Localização e câmera precisam de autorização do navegador</div>
+          </div>
+          <button class="btn btn--ghost" id="permissionsBtn">Verificar permissões</button>
+        </div>
+        <div class="settings-row settings-row--about">
+          <div>
+            <div class="settings-row__title">AutoPainel</div>
+            <div class="settings-row__desc">Sistema multimídia veicular para tablets, feito para rodar direto do navegador.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= DOCK ================= -->
+  <nav class="dock">
+    <button class="dock__btn is-active" data-goto="home" aria-label="Painel">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-home"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="nav" aria-label="Navegação">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-compass"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="camera" aria-label="Câmera de ré">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-camera"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="music" aria-label="Música">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-music"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="streaming" aria-label="Streaming">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-play"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="weather" aria-label="Clima">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-cloud"/></svg>
+    </button>
+    <button class="dock__btn" data-goto="settings" aria-label="Ajustes">
+      <svg class="icon" viewBox="0 0 24 24"><use href="#i-settings"/></svg>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ================= SPRITE DE ÍCONES ================= -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="i-home"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></g>
+    <g id="i-compass"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15 9-2 5-4 1.5L11 10z" fill="currentColor"/></g>
+    <g id="i-camera"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></g>
+    <g id="i-music"><circle cx="6.5" cy="17.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16.5" cy="15.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 17.5V5.5L19 4v11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="i-play"><polygon points="7,4.5 20,12 7,19.5" fill="currentColor"/></g>
+    <g id="i-play2"><polygon points="8,5 19,12 8,19" fill="currentColor"/></g>
+    <g id="i-pause"><rect x="7" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></g>
+    <g id="i-prev"><polygon points="16,5 6,12 16,19" fill="currentColor"/><rect x="4" y="5" width="1.8" height="14" fill="currentColor"/></g>
+    <g id="i-next"><polygon points="8,5 18,12 8,19" fill="currentColor"/><rect x="18.2" y="5" width="1.8" height="14" fill="currentColor"/></g>
+    <g id="i-add"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></g>
+    <g id="i-cloud"><path d="M7 18a4 4 0 0 1-.5-7.97A5 5 0 0 1 16.2 9.06 4.5 4.5 0 0 1 16.5 18z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></g>
+    <g id="i-settings"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19 12a7 7 0 0 0-.14-1.4l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2.4-1.4L14 3h-4l-.16 2.2a7 7 0 0 0-2.4 1.4l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .47.05.95.14 1.4l-2 1.5 2 3.4 2.3-.9c.7.6 1.5 1.08 2.4 1.4L10 21h4l.16-2.2a7 7 0 0 0 2.4-1.4l2.3.9 2-3.4-2-1.5c.09-.45.14-.93.14-1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></g>
+    <g id="i-satellite"><path d="m14 6 4 4-2 2-4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9.5 10.5-4 4 4 4 4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 8 6 15" stroke="currentColor" stroke-width="1.6"/><path d="M18 3s1.5 1 2 2.5M20.5 5.5s1 1.5 1 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></g>
+    <g id="i-battery"><rect x="3" y="8" width="16" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="20" y="10.5" width="1.6" height="3" fill="currentColor"/><rect x="5" y="10" width="10" height="4" fill="currentColor"/></g>
+  </defs>
+</svg>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/modules/clock.js"></script>
+<script src="js/modules/speedometer.js"></script>
+<script src="js/modules/gps.js"></script>
+<script src="js/modules/camera.js"></script>
+<script src="js/modules/music.js"></script>
+<script src="js/modules/weather.js"></script>
+<script src="js/modules/streaming.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
